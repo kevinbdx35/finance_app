@@ -26,54 +26,51 @@ LIGHT = colors.HexColor('#F0F0F0')
 
 PAGE_W, PAGE_H = A4
 
-
-def _make_styles():
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'SLAMMTitle',
-        fontName='Helvetica-Bold',
-        fontSize=22,
-        textColor=RED,
-        spaceAfter=2,
-        alignment=TA_LEFT,
-        letterSpacing=3,
-    )
-    subtitle_style = ParagraphStyle(
-        'SLAMMSubtitle',
-        fontName='Helvetica',
-        fontSize=10,
-        textColor=GREY,
-        spaceAfter=6,
-        alignment=TA_LEFT,
-    )
-    heading_style = ParagraphStyle(
-        'SLAMMHeading',
-        fontName='Helvetica-Bold',
-        fontSize=13,
-        textColor=LIGHT,
-        spaceBefore=14,
-        spaceAfter=6,
-        alignment=TA_LEFT,
-    )
-    normal_style = ParagraphStyle(
-        'SLAMMNormal',
-        fontName='Helvetica',
-        fontSize=9,
-        textColor=LIGHT,
-        spaceAfter=3,
-    )
-    meta_style = ParagraphStyle(
-        'SLAMMMeta',
-        fontName='Helvetica',
-        fontSize=8,
-        textColor=GREY,
-        alignment=TA_RIGHT,
-    )
-    return title_style, subtitle_style, heading_style, normal_style, meta_style
+# Styles calculés une seule fois au chargement du module
+_TITLE_STYLE = ParagraphStyle(
+    'SLAMMTitle',
+    fontName='Helvetica-Bold',
+    fontSize=22,
+    textColor=RED,
+    spaceAfter=2,
+    alignment=TA_LEFT,
+    letterSpacing=3,
+)
+_SUBTITLE_STYLE = ParagraphStyle(
+    'SLAMMSubtitle',
+    fontName='Helvetica',
+    fontSize=10,
+    textColor=GREY,
+    spaceAfter=6,
+    alignment=TA_LEFT,
+)
+_HEADING_STYLE = ParagraphStyle(
+    'SLAMMHeading',
+    fontName='Helvetica-Bold',
+    fontSize=13,
+    textColor=LIGHT,
+    spaceBefore=14,
+    spaceAfter=6,
+    alignment=TA_LEFT,
+)
+_NORMAL_STYLE = ParagraphStyle(
+    'SLAMMNormal',
+    fontName='Helvetica',
+    fontSize=9,
+    textColor=LIGHT,
+    spaceAfter=3,
+)
+_META_STYLE = ParagraphStyle(
+    'SLAMMMeta',
+    fontName='Helvetica',
+    fontSize=8,
+    textColor=GREY,
+    alignment=TA_RIGHT,
+)
 
 
 def _header_elements(title_text, subtitle_text):
-    title_style, subtitle_style, _, _, meta_style = _make_styles()
+    title_style, subtitle_style, meta_style = _TITLE_STYLE, _SUBTITLE_STYLE, _META_STYLE
     now = datetime.now().strftime('%d/%m/%Y à %H:%M')
     elements = [
         Paragraph("SLAMM", title_style),
@@ -90,7 +87,7 @@ def _header_elements(title_text, subtitle_text):
 
 
 def _tx_table(transactions, currency='€'):
-    _, _, _, normal_style, _ = _make_styles()
+    normal_style = _NORMAL_STYLE
     header = ['Date', 'Libellé', 'Catégorie', 'Montant']
     data = [header]
     for tx in transactions:
@@ -171,7 +168,7 @@ def generate_monthly_report(transactions, year, month, currency='€'):
                  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
     month_name = MONTHS_FR[month - 1]
 
-    _, _, heading_style, normal_style, _ = _make_styles()
+    heading_style, normal_style = _HEADING_STYLE, _NORMAL_STYLE
     elements = _header_elements(
         f"Rapport mensuel — {month_name} {year}",
         f"Transactions du {month_name} {year}"
@@ -204,7 +201,7 @@ def generate_annual_report(transactions, budget_data, year, currency='€'):
         topMargin=1.5 * cm, bottomMargin=1.5 * cm,
     )
 
-    _, _, heading_style, normal_style, _ = _make_styles()
+    heading_style, normal_style = _HEADING_STYLE, _NORMAL_STYLE
     elements = _header_elements(f"Rapport annuel {year}", f"Exercice {year}")
 
     income = sum(t['amount'] for t in transactions if t['type'] == 'income')
@@ -268,7 +265,6 @@ def generate_receipt(transaction, currency='€'):
         topMargin=1.5 * cm, bottomMargin=1.5 * cm,
     )
 
-    _, _, heading_style, normal_style, meta_style = _make_styles()
     label_style = ParagraphStyle('Label', fontName='Helvetica-Bold', fontSize=9,
                                  textColor=GREY, spaceAfter=1)
     value_style = ParagraphStyle('Value', fontName='Helvetica', fontSize=11,

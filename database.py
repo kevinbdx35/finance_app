@@ -345,6 +345,7 @@ def get_last_transactions(n=5):
 
 def get_monthly_chart_data(months=12):
     """Returns last N months income/expense for bar chart."""
+    months = min(max(1, int(months)), 120)  # entre 1 et 120 mois (10 ans)
     from datetime import date
     today = date.today()
     results = []

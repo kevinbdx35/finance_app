@@ -151,7 +151,10 @@ def dashboard():
 
 @app.route('/transactions')
 def transactions():
-    page = int(request.args.get('page', 1))
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+    except (ValueError, TypeError):
+        page = 1
     filters = {
         'type': request.args.get('type', ''),
         'category_id': request.args.get('category_id', ''),
@@ -209,6 +212,9 @@ def add_transaction():
 
     try:
         amount = float(data['amount'])
+        if amount < 0:
+            flash('Le montant ne peut pas être négatif.', 'error')
+            return redirect(url_for('transactions'))
         db.create_transaction(
             date=data['date'],
             label=data['label'][:200],
@@ -257,11 +263,15 @@ def edit_transaction(tx_id):
         attachment_path = None
 
     try:
+        amount = float(data['amount'])
+        if amount < 0:
+            flash('Le montant ne peut pas être négatif.', 'error')
+            return redirect(url_for('transactions'))
         db.update_transaction(
             tx_id=tx_id,
             date=data['date'],
             label=data['label'][:200],
-            amount=float(data['amount']),
+            amount=amount,
             typ=data['type'],
             category_id=data.get('category_id') or None,
             notes=data.get('notes', '')[:500],
@@ -290,7 +300,12 @@ def view_attachment(tx_id):
     tx = db.get_transaction(tx_id)
     if not tx or not tx['attachment_path']:
         abort(404)
-    return send_file(os.path.join(UPLOAD_FOLDER, tx['attachment_path']))
+    real_folder = os.path.realpath(UPLOAD_FOLDER)
+    safe_path = os.path.realpath(os.path.join(UPLOAD_FOLDER, tx['attachment_path']))
+    if not safe_path.startswith(real_folder + os.sep):
+        app.logger.warning(f"Path traversal bloqué : {tx['attachment_path']}")
+        abort(404)
+    return send_file(safe_path)
 
 
 def _extract_filters(args):
@@ -460,10 +475,14 @@ def download_document(doc_id):
     doc = db.get_document(doc_id)
     if not doc:
         abort(404)
-    path = os.path.join(DOCUMENTS_FOLDER, doc['file_path'])
-    if not os.path.exists(path):
+    real_folder = os.path.realpath(DOCUMENTS_FOLDER)
+    safe_path = os.path.realpath(os.path.join(DOCUMENTS_FOLDER, doc['file_path']))
+    if not safe_path.startswith(real_folder + os.sep):
+        app.logger.warning(f"Path traversal bloqué (document) : {doc['file_path']}")
         abort(404)
-    return send_file(path, as_attachment=True, download_name=doc['name'])
+    if not os.path.exists(safe_path):
+        abort(404)
+    return send_file(safe_path, as_attachment=True, download_name=doc['name'])
 
 
 @app.route('/documents/<int:doc_id>/edit', methods=['POST'])
@@ -495,7 +514,10 @@ def delete_document(doc_id):
 
 @app.route('/budget')
 def budget():
-    year = int(request.args.get('year', date.today().year))
+    try:
+        year = int(request.args.get('year', date.today().year))
+    except (ValueError, TypeError):
+        year = date.today().year
     budget_data = db.get_budget_realization(year)
     categories = db.get_categories()
     years = list(range(date.today().year - 2, date.today().year + 3))
@@ -525,7 +547,7 @@ def save_budget():
                 try:
                     cat_id = int(parts[1])
                     typ = parts[2]
-                    amount = float(value or 0)
+                    amount = max(0.0, float(value or 0))
                     db.save_budget(year, cat_id, typ, amount)
                 except (ValueError, IndexError):
                     pass
@@ -548,8 +570,13 @@ def rapports():
 
 @app.route('/rapports/monthly', methods=['POST'])
 def rapport_monthly():
-    year = int(request.form['year'])
-    month = int(request.form['month'])
+    try:
+        year = int(request.form['year'])
+        month = int(request.form['month'])
+        if not (1 <= month <= 12):
+            raise ValueError
+    except (ValueError, KeyError):
+        abort(400)
     currency = get_currency()
     txs = db.get_transactions_for_report(year, month)
     buf = pdf.generate_monthly_report(txs, year, month, currency)
@@ -561,7 +588,10 @@ def rapport_monthly():
 
 @app.route('/rapports/annual', methods=['POST'])
 def rapport_annual():
-    year = int(request.form['year'])
+    try:
+        year = int(request.form['year'])
+    except (ValueError, KeyError):
+        abort(400)
     currency = get_currency()
     txs = db.get_transactions_for_report(year)
     budget_data = db.get_budget_realization(year)
@@ -649,8 +679,14 @@ def parametres():
         elif action == 'import_db':
             file = request.files.get('db_file')
             if file and file.filename.endswith('.db'):
-                file.save(db.DB_PATH)
-                flash('Base de données restaurée. Redémarrez l\'application.', 'success')
+                header = file.read(16)
+                file.seek(0)
+                if not header.startswith(b'SQLite format 3'):
+                    app.logger.warning("Tentative d'import d'un fichier non-SQLite rejetée.")
+                    flash("Fichier invalide — ce n'est pas une base SQLite.", 'error')
+                else:
+                    file.save(db.DB_PATH)
+                    flash("Base de données restaurée. Redémarrez l'application.", 'success')
             else:
                 flash('Fichier .db requis.', 'error')
         return redirect(url_for('parametres'))
@@ -722,7 +758,10 @@ def admin_update():
             cwd=repo_dir,
             stderr=subprocess.STDOUT,
             text=True,
+            timeout=30,
         )
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'error': 'git pull a expiré (timeout 30s).'}), 500
     except subprocess.CalledProcessError as e:
         return jsonify({'success': False, 'error': e.output}), 500
 

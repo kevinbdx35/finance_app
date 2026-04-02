@@ -666,7 +666,102 @@ class TestParametres(unittest.TestCase):
 
 
 # =============================================================================
-# 13. Routes de mise à jour
+# 13. Sécurité avancée
+# =============================================================================
+
+class TestSecurity(unittest.TestCase):
+
+    def setUp(self):
+        self.client = get_client()
+
+    def test_path_traversal_attachment(self):
+        """Un chemin ../.. en DB ne doit pas être servi."""
+        cat_id = _create_category('SecCat', 'both', '#AABBCC')
+        tx_id = db.create_transaction(
+            date='2025-01-01', label='TX traversal', amount=10.0,
+            typ='income', category_id=cat_id,
+            notes='', attachment_path='../../../etc/passwd',
+        )
+        r = self.client.get(f'/transactions/{tx_id}/attachment')
+        self.assertEqual(r.status_code, 404)
+
+    def test_path_traversal_document(self):
+        """Un chemin ../.. en DB pour un document ne doit pas être servi."""
+        doc_id = db.create_document(
+            'Traversal doc', '2025-01-01', 'Admin', '', '../../../etc/passwd'
+        )
+        r = self.client.get(f'/documents/{doc_id}/download')
+        self.assertEqual(r.status_code, 404)
+
+    def test_negative_amount_rejected(self):
+        """Un montant négatif doit être rejeté côté serveur."""
+        cat_id = _create_category('NegCat', 'both', '#112233')
+        count_before = db.get_transactions()[1]
+        r = self.client.post('/transactions/add', data={
+            'date': '2025-01-01',
+            'label': 'TX négatif',
+            'amount': '-50',
+            'type': 'expense',
+            'category_id': str(cat_id),
+            'notes': '',
+        }, follow_redirects=True)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(db.get_transactions()[1], count_before)
+
+    def test_negative_amount_edit_rejected(self):
+        """Un montant négatif en édition doit être rejeté."""
+        cat_id = _create_category('NegEditCat', 'both', '#334455')
+        tx_id = _create_transaction('TX original', 100.0, 'income', cat_id)
+        self.client.post(f'/transactions/{tx_id}/edit', data={
+            'date': '2025-01-01',
+            'label': 'TX modifié',
+            'amount': '-99',
+            'type': 'income',
+            'category_id': str(cat_id),
+            'notes': '',
+        }, follow_redirects=True)
+        tx = db.get_transaction(tx_id)
+        self.assertAlmostEqual(tx['amount'], 100.0)  # inchangé
+
+    def test_db_import_invalid_file_rejected(self):
+        """Un fichier non-SQLite déguisé en .db doit être rejeté."""
+        import io
+        fake_db = io.BytesIO(b'This is not a SQLite database file')
+        r = self.client.post('/parametres', data={
+            'action': 'import_db',
+            'db_file': (fake_db, 'fake.db'),
+        }, content_type='multipart/form-data', follow_redirects=True)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('invalide', r.data.decode('utf-8').lower())
+
+    def test_page_param_invalid(self):
+        """Un paramètre page invalide ne doit pas lever d'erreur 500."""
+        r = self.client.get('/transactions?page=abc')
+        self.assertEqual(r.status_code, 200)
+
+    def test_page_param_negative(self):
+        """Un paramètre page négatif doit être traité comme page 1."""
+        r = self.client.get('/transactions?page=-5')
+        self.assertEqual(r.status_code, 200)
+
+    def test_year_param_invalid_budget(self):
+        """Un paramètre year invalide sur budget ne doit pas lever d'erreur 500."""
+        r = self.client.get('/budget?year=notanumber')
+        self.assertEqual(r.status_code, 200)
+
+    def test_rapport_monthly_invalid_params(self):
+        """Des paramètres invalides sur rapport mensuel retournent 400."""
+        r = self.client.post('/rapports/monthly', data={'year': 'abc', 'month': '13'})
+        self.assertEqual(r.status_code, 400)
+
+    def test_rapport_annual_invalid_params(self):
+        """Des paramètres invalides sur rapport annuel retournent 400."""
+        r = self.client.post('/rapports/annual', data={'year': 'notayear'})
+        self.assertEqual(r.status_code, 400)
+
+
+# =============================================================================
+# 15. Routes de mise à jour
 # =============================================================================
 
 class TestUpdateRoutes(unittest.TestCase):
