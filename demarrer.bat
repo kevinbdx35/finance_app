@@ -1,5 +1,9 @@
 @echo off
 chcp 65001 >nul
+
+REM Se placer dans le dossier du script (indispensable pour les chemins relatifs)
+cd /d "%~dp0"
+
 echo ======================================
 echo   SLAMM Finances MMA Saint-Lunaire
 echo ======================================
@@ -40,13 +44,10 @@ if not exist ".venv\" (
     )
 )
 
-REM Activer le venv
-call .venv\Scripts\activate.bat
-
-REM Installer les dependances
+REM Installer les dependances via le Python du venv (sans activer le venv)
 echo Installation des dependances...
-pip install --quiet --upgrade pip >nul 2>&1
-pip install --quiet -r requirements.txt
+.venv\Scripts\python.exe -m pip install --quiet --upgrade pip >nul 2>&1
+.venv\Scripts\python.exe -m pip install --quiet -r requirements.txt
 if errorlevel 1 (
     echo ERREUR : impossible d'installer les dependances.
     pause
@@ -58,14 +59,14 @@ echo Demarrage de l'application SLAMM...
 echo Acces : http://127.0.0.1:%PORT%
 echo.
 
-REM Lancer Flask avec le port selectionne
+REM Lancer Flask directement avec le Python du venv
 set FLASK_PORT=%PORT%
-start "" python app.py
+start "SLAMM Flask" .venv\Scripts\python.exe app.py
 
 REM Attendre que Flask soit pret (3 secondes)
 timeout /t 3 /nobreak >nul
 
-REM Ouvrir le navigateur
+REM Ouvrir le navigateur (127.0.0.1 plus fiable que localhost sur Windows)
 start "" http://127.0.0.1:%PORT%
 
 echo.

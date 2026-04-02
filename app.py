@@ -769,10 +769,15 @@ def admin_update():
     _update_cache['checked_at'] = 0.0
 
     # Redémarre le process Python dans 1 seconde (laisse le temps de répondre)
+    # os.execv n'est pas fiable sur Windows : on utilise Popen + _exit à la place
     import threading
     def _restart():
         time.sleep(1)
-        os.execv(sys.executable, [sys.executable] + sys.argv)
+        if sys.platform == 'win32':
+            subprocess.Popen([sys.executable] + sys.argv)
+            os._exit(0)
+        else:
+            os.execv(sys.executable, [sys.executable] + sys.argv)
     threading.Thread(target=_restart, daemon=True).start()
 
     return jsonify({'success': True, 'output': output})
