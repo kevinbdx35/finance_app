@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Documents — SLAMM{% endblock %}
+{% block breadcrumb %}Documents{% endblock %}
+
+{% block header_actions %}
+<button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-add-doc').classList.add('open')">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  Ajouter un document
+</button>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filters -->
+<form method="GET" class="flex-center gap-10 mb-20" style="flex-wrap:wrap;">
+  <div class="search-wrap" style="flex:1;min-width:200px;max-width:340px;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" name="search" class="form-control" placeholder="Rechercher un document..." value="{{ search }}">
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    <a href="{{ url_for('documents') }}" class="btn {% if not active_category %}btn-primary{% else %}btn-outline{% endif %} btn-sm">Tous</a>
+    {% for cat in categories %}
+    <a href="?category={{ cat }}" class="btn {% if active_category == cat %}btn-primary{% else %}btn-outline{% endif %} btn-sm">{{ cat }}</a>
+    {% endfor %}
+  </div>
+  <button type="submit" class="btn btn-outline btn-sm">Rechercher</button>
+</form>
+
+{% if documents %}
+<div class="grid-3">
+  {% for doc in documents %}
+  <div class="doc-card">
+    <div class="flex-between">
+      <div class="doc-icon">
+        {% if doc.file_path.endswith('.pdf') %}
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        {% else %}
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        {% endif %}
+      </div>
+      <span class="badge" style="background:#1F1F1F;color:var(--text2);">{{ doc.category }}</span>
+    </div>
+    <div class="doc-name">{{ doc.name }}</div>
+    <div class="doc-meta">
+      <div>{{ doc.date }}</div>
+      {% if doc.notes %}<div style="margin-top:2px;">{{ doc.notes[:60] }}{% if doc.notes|length > 60 %}…{% endif %}</div>{% endif %}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <a href="{{ url_for('download_document', doc_id=doc.id) }}" class="btn btn-outline btn-sm" style="flex:1;justify-content:center;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Télécharger
+      </a>
+      <form method="POST" action="{{ url_for('delete_document', doc_id=doc.id) }}"
+            onsubmit="return confirm('Supprimer ce document ?')">
+        <button type="submit" class="btn btn-danger btn-sm" title="Supprimer">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card text-center" style="padding:60px 20px;">
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="1.5" style="margin:0 auto 12px;display:block;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+  <p class="text-muted">Aucun document trouvé.</p>
+  <button class="btn btn-primary btn-sm mt-16" onclick="document.getElementById('modal-add-doc').classList.add('open')">
+    Ajouter le premier document
+  </button>
+</div>
+{% endif %}
+
+<!-- Modal: Ajouter document -->
+<div class="modal-backdrop" id="modal-add-doc">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('modal-add-doc').classList.remove('open')">✕</button>
+    <div class="modal-title">Ajouter un document</div>
+    <form method="POST" action="{{ url_for('add_document') }}" enctype="multipart/form-data">
+      <div class="form-group">
+        <label class="form-label">Fichier *</label>
+        <div class="dropzone" onclick="document.getElementById('doc-file').click()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 6px;display:block;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span id="doc-file-label">Cliquez ou déposez un fichier</span>
+          <input type="file" name="file" id="doc-file" required
+            onchange="document.getElementById('doc-file-label').textContent = this.files[0]?.name || 'Fichier sélectionné'; document.getElementById('doc-name').value = this.files[0]?.name?.replace(/\.[^.]+$/, '') || ''">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nom du document</label>
+        <input type="text" name="name" id="doc-name" class="form-control" placeholder="Ex : Contrat assurance 2024" required>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input type="date" name="date" class="form-control" value="{{ today }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Catégorie</label>
+          <select name="category" class="form-control">
+            {% for cat in categories %}
+            <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" placeholder="Informations complémentaires..."></textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-add-doc').classList.remove('open')">Annuler</button>
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelector('#modal-add-doc input[name="date"]').value = new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}

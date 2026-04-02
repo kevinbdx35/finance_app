@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}Budget — SLAMM{% endblock %}
+{% block breadcrumb %}Budget prévisionnel{% endblock %}
+
+{% block content %}
+
+<div class="flex-between mb-20">
+  <div class="flex-center gap-10">
+    <div class="section-title" style="margin-bottom:0;">Budget {{ year }}</div>
+    <div style="display:flex;gap:6px;">
+      {% for y in years %}
+      <a href="{{ url_for('budget', year=y) }}" class="btn {% if y == year %}btn-primary{% else %}btn-outline{% endif %} btn-sm">{{ y }}</a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<form method="POST" action="{{ url_for('save_budget') }}">
+  <input type="hidden" name="year" value="{{ year }}">
+
+  <!-- Summary row -->
+  {% set total_budget_income = income_rows | sum(attribute='budget_amount') %}
+  {% set total_actual_income = income_rows | sum(attribute='actual_amount') %}
+  {% set total_budget_expense = expense_rows | sum(attribute='budget_amount') %}
+  {% set total_actual_expense = expense_rows | sum(attribute='actual_amount') %}
+
+  <div class="grid-4 mb-20">
+    <div class="metric-card">
+      <div class="metric-label">Budget entrées</div>
+      <div class="metric-value">{{ "%.2f"|format(total_budget_income) }} {{ currency }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Réalisé entrées</div>
+      <div class="metric-value text-green">{{ "%.2f"|format(total_actual_income) }} {{ currency }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Budget sorties</div>
+      <div class="metric-value">{{ "%.2f"|format(total_budget_expense) }} {{ currency }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Réalisé sorties</div>
+      <div class="metric-value text-red">{{ "%.2f"|format(total_actual_expense) }} {{ currency }}</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- Entrées -->
+    <div class="card">
+      <div class="section-title" style="font-size:15px;margin-bottom:16px;color:var(--green);">Entrées</div>
+      {% if income_rows %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Catégorie</th>
+              <th class="text-right">Budget</th>
+              <th class="text-right">Réalisé</th>
+              <th class="text-right">Écart</th>
+              <th style="min-width:120px;">Progression</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in income_rows %}
+            {% set pct = (row.actual_amount / row.budget_amount * 100) if row.budget_amount > 0 else 0 %}
+            {% set ecart = row.actual_amount - row.budget_amount %}
+            <tr>
+              <td>
+                <span class="badge" style="background:{{ row.category_color }}22;color:{{ row.category_color }};">
+                  <span class="badge-dot" style="background:{{ row.category_color }};"></span>
+                  {{ row.category_name }}
+                </span>
+              </td>
+              <td class="text-right">
+                <input type="number" name="budget_{{ row.category_id }}_income"
+                  class="form-control mono" style="width:100px;text-align:right;padding:4px 8px;"
+                  step="0.01" min="0" value="{{ "%.2f"|format(row.budget_amount) }}">
+              </td>
+              <td class="text-right mono text-green">{{ "%.2f"|format(row.actual_amount) }} {{ currency }}</td>
+              <td class="text-right mono {% if ecart >= 0 %}text-green{% else %}text-red{% endif %}">
+                {% if ecart >= 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} {{ currency }}
+              </td>
+              <td>
+                <div class="progress-track">
+                  <div class="progress-fill {% if pct < 75 %}ok{% elif pct < 100 %}warn{% else %}over{% endif %}"
+                       style="width: {{ [pct, 100]|min }}%;"></div>
+                </div>
+                <div style="font-size:10px;color:var(--text2);margin-top:2px;font-family:'JetBrains Mono',monospace;">{{ "%.0f"|format(pct) }}%</div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted" style="font-size:12px;padding:20px 0;">
+        Aucune catégorie de type entrée. Ajoutez des catégories dans
+        <a href="{{ url_for('categories') }}" style="color:var(--red);">Catégories</a>.
+      </p>
+      {% endif %}
+
+      <!-- Ajouter catégorie manquante -->
+      {% set existing_income_ids = income_rows | map(attribute='category_id') | list %}
+      {% set missing_income = categories | selectattr('type', 'in', ['income', 'both']) | list %}
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Ajouter une catégorie au budget :</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          {% for cat in missing_income %}
+          {% if cat.id not in existing_income_ids %}
+          <span style="font-size:11px;padding:4px 8px;border-radius:4px;background:var(--green-dim);color:var(--green);">
+            <input type="number" name="budget_{{ cat.id }}_income" placeholder="{{ cat.name }}"
+              style="background:transparent;border:none;outline:none;width:120px;color:var(--green);font-size:11px;"
+              step="0.01" min="0">
+          </span>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Sorties -->
+    <div class="card">
+      <div class="section-title" style="font-size:15px;margin-bottom:16px;color:#DC2626;">Sorties</div>
+      {% if expense_rows %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Catégorie</th>
+              <th class="text-right">Budget</th>
+              <th class="text-right">Réalisé</th>
+              <th class="text-right">Écart</th>
+              <th style="min-width:120px;">Progression</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in expense_rows %}
+            {% set pct = (row.actual_amount / row.budget_amount * 100) if row.budget_amount > 0 else 0 %}
+            {% set ecart = row.actual_amount - row.budget_amount %}
+            <tr>
+              <td>
+                <span class="badge" style="background:{{ row.category_color }}22;color:{{ row.category_color }};">
+                  <span class="badge-dot" style="background:{{ row.category_color }};"></span>
+                  {{ row.category_name }}
+                </span>
+              </td>
+              <td class="text-right">
+                <input type="number" name="budget_{{ row.category_id }}_expense"
+                  class="form-control mono" style="width:100px;text-align:right;padding:4px 8px;"
+                  step="0.01" min="0" value="{{ "%.2f"|format(row.budget_amount) }}">
+              </td>
+              <td class="text-right mono text-red">{{ "%.2f"|format(row.actual_amount) }} {{ currency }}</td>
+              <td class="text-right mono {% if ecart <= 0 %}text-green{% else %}text-red{% endif %}">
+                {% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} {{ currency }}
+              </td>
+              <td>
+                <div class="progress-track">
+                  <div class="progress-fill {% if pct < 75 %}ok{% elif pct < 100 %}warn{% else %}over{% endif %}"
+                       style="width: {{ [pct, 100]|min }}%;"></div>
+                </div>
+                <div style="font-size:10px;color:var(--text2);margin-top:2px;font-family:'JetBrains Mono',monospace;">{{ "%.0f"|format(pct) }}%</div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted" style="font-size:12px;padding:20px 0;">
+        Aucun budget de sortie défini.
+      </p>
+      {% endif %}
+
+      <!-- Ajouter catégorie manquante -->
+      {% set existing_expense_ids = expense_rows | map(attribute='category_id') | list %}
+      {% set missing_expense = categories | selectattr('type', 'in', ['expense', 'both']) | list %}
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Ajouter une catégorie au budget :</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          {% for cat in missing_expense %}
+          {% if cat.id not in existing_expense_ids %}
+          <span style="font-size:11px;padding:4px 8px;border-radius:4px;background:var(--red-dim);color:#DC2626;">
+            <input type="number" name="budget_{{ cat.id }}_expense" placeholder="{{ cat.name }}"
+              style="background:transparent;border:none;outline:none;width:120px;color:#DC2626;font-size:11px;"
+              step="0.01" min="0">
+          </span>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;margin-top:20px;">
+    <button type="submit" class="btn btn-primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Enregistrer le budget {{ year }}
+    </button>
+  </div>
+</form>
+{% endblock %}

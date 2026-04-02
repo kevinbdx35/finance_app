@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — SLAMM{% endblock %}
+{% block breadcrumb %}Tableau de bord{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('transactions') }}" class="btn btn-outline btn-sm">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+  Toutes les transactions
+</a>
+<button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-add').classList.add('open')">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  Nouvelle transaction
+</button>
+{% endblock %}
+
+{% block content %}
+
+{% if budget_alerts %}
+<div class="mb-16">
+  {% for alert in budget_alerts %}
+  <div class="alert-budget">
+    ⚠ Budget <strong>{{ alert.name }}</strong> dépassé — {{ "%.2f"|format(alert.actual_amount) }} {{ currency }} / {{ "%.2f"|format(alert.budget_amount) }} {{ currency }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Metric cards -->
+<div class="grid-4 mb-20">
+  <div class="metric-card">
+    <div class="metric-label">Solde total</div>
+    <div class="metric-value {% if balance >= 0 %}text-green{% else %}text-red{% endif %}">
+      {% if balance >= 0 %}+{% endif %}{{ "%.2f"|format(balance) }} {{ currency }}
+    </div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-label">Entrées — {{ current_month }}</div>
+    <div class="metric-value text-green">+{{ "%.2f"|format(income_cur) }} {{ currency }}</div>
+    {% if delta_income is not none %}
+    <span class="metric-delta {% if delta_income >= 0 %}delta-up{% else %}delta-down{% endif %}">
+      {% if delta_income >= 0 %}▲{% else %}▼{% endif %} {{ delta_income|abs }}% vs mois préc.
+    </span>
+    {% endif %}
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-label">Sorties — {{ current_month }}</div>
+    <div class="metric-value text-red">−{{ "%.2f"|format(expense_cur) }} {{ currency }}</div>
+    {% if delta_expense is not none %}
+    <span class="metric-delta {% if delta_expense <= 0 %}delta-up{% else %}delta-down{% endif %}">
+      {% if delta_expense <= 0 %}▼{% else %}▲{% endif %} {{ delta_expense|abs }}% vs mois préc.
+    </span>
+    {% endif %}
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-label">Solde mensuel</div>
+    <div class="metric-value {% if monthly_balance >= 0 %}text-green{% else %}text-red{% endif %}">
+      {% if monthly_balance >= 0 %}+{% endif %}{{ "%.2f"|format(monthly_balance) }} {{ currency }}
+    </div>
+    {% if delta_balance is not none %}
+    <span class="metric-delta {% if delta_balance >= 0 %}delta-up{% else %}delta-down{% endif %}">
+      {% if delta_balance >= 0 %}▲{% else %}▼{% endif %} {{ delta_balance|abs }}% vs mois préc.
+    </span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="grid-2 mb-20">
+  <div class="card">
+    <div class="section-title" style="font-size:14px; margin-bottom:14px;">Entrées / Sorties — 12 mois</div>
+    <canvas id="barChart"></canvas>
+  </div>
+  <div class="card">
+    <div class="section-title" style="font-size:14px; margin-bottom:14px;">Dépenses par catégorie</div>
+    <canvas id="donutChart"></canvas>
+  </div>
+</div>
+
+<!-- Last transactions -->
+<div class="card">
+  <div class="flex-between mb-16">
+    <div class="section-title" style="font-size:14px; margin-bottom:0;">Dernières transactions</div>
+    <a href="{{ url_for('transactions') }}" class="btn btn-outline btn-sm">Voir tout</a>
+  </div>
+
+  {% if last_transactions %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Libellé</th>
+          <th>Catégorie</th>
+          <th class="text-right">Montant</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in last_transactions %}
+        <tr>
+          <td class="mono text-muted" style="font-size:12px;">{{ tx.date }}</td>
+          <td>{{ tx.label }}</td>
+          <td>
+            {% if tx.category_name %}
+            <span class="badge" style="background: {{ tx.category_color }}22; color: {{ tx.category_color }};">
+              <span class="badge-dot" style="background: {{ tx.category_color }};"></span>
+              {{ tx.category_name }}
+            </span>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="text-right">
+            <span class="amount {{ tx.type }}">
+              {% if tx.type == 'income' %}+{% else %}−{% endif %}{{ "%.2f"|format(tx.amount) }} {{ currency }}
+            </span>
+          </td>
+          <td>
+            {% if tx.attachment_path %}
+            <a href="{{ url_for('view_attachment', tx_id=tx.id) }}" target="_blank" title="Pièce jointe" class="btn-ghost btn btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted text-center" style="padding: 30px;">Aucune transaction enregistrée.</p>
+  {% endif %}
+</div>
+
+<!-- Modal add transaction -->
+{% include '_modal_transaction.html' %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const chartData = {{ chart_data|safe }};
+const donutData = {{ donut_data|safe }};
+
+// Bar chart
+const barCtx = document.getElementById('barChart').getContext('2d');
+new Chart(barCtx, {
+  type: 'bar',
+  data: {
+    labels: chartData.map(d => d.label),
+    datasets: [
+      {
+        label: 'Entrées',
+        data: chartData.map(d => d.income),
+        backgroundColor: '#22C55E44',
+        borderColor: '#22C55E',
+        borderWidth: 1,
+        borderRadius: 2,
+      },
+      {
+        label: 'Sorties',
+        data: chartData.map(d => d.expense),
+        backgroundColor: '#EF444444',
+        borderColor: '#EF4444',
+        borderWidth: 1,
+        borderRadius: 2,
+      }
+    ]
+  },
+  options: {
+    aspectRatio: 2.5,
+    plugins: {
+      legend: { labels: { color: '#888', font: { family: 'Inter', size: 11 } } },
+      tooltip: {
+        backgroundColor: '#FFFFFF',
+        borderColor: '#E5E7EB',
+        borderWidth: 1,
+        titleColor: '#888',
+        bodyColor: '#111827',
+        callbacks: {
+          label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} €`
+        }
+      }
+    },
+    scales: {
+      x: { grid: { color: '#F3F4F6' }, ticks: { color: '#888', font: { size: 10 } } },
+      y: { grid: { color: '#F3F4F6' }, ticks: { color: '#888', font: { size: 10 },
+        callback: v => v.toFixed(0) + ' €' } },
+    }
+  }
+});
+
+// Donut chart
+const donutCtx = document.getElementById('donutChart').getContext('2d');
+if (donutData.length > 0) {
+  new Chart(donutCtx, {
+    type: 'doughnut',
+    data: {
+      labels: donutData.map(d => d.name || 'Non catégorisé'),
+      datasets: [{
+        data: donutData.map(d => d.total),
+        backgroundColor: donutData.map(d => (d.color || '#888') + 'BB'),
+        borderColor: donutData.map(d => d.color || '#888'),
+        borderWidth: 1,
+      }]
+    },
+    options: {
+      aspectRatio: 2,
+      cutout: '65%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color: '#888', font: { family: 'Inter', size: 11 }, padding: 12 }
+        },
+        tooltip: {
+          backgroundColor: '#FFFFFF',
+          borderColor: '#E5E7EB',
+          borderWidth: 1,
+          titleColor: '#888',
+          bodyColor: '#111827',
+          callbacks: {
+            label: ctx => ` ${ctx.parsed.toFixed(2)} €`
+          }
+        }
+      }
+    }
+  });
+} else {
+  donutCtx.canvas.parentElement.innerHTML += '<p style="color:#6B7280;text-align:center;font-size:12px;padding-top:40px;">Aucune dépense ce mois</p>';
+}
+</script>
+{% endblock %}

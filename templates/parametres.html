@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Paramètres — SLAMM{% endblock %}
+{% block breadcrumb %}Paramètres{% endblock %}
+
+{% block content %}
+
+<div style="max-width:600px;">
+
+  <!-- Paramètres généraux -->
+  <div class="card mb-20">
+    <div class="section-title" style="font-size:16px;margin-bottom:20px;">Paramètres généraux</div>
+    <form method="POST">
+      <input type="hidden" name="action" value="save_settings">
+      <div class="form-group">
+        <label class="form-label">Nom de l'association</label>
+        <input type="text" name="association_name" class="form-control"
+               value="{{ settings.association_name }}" placeholder="SLAMM">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Localisation</label>
+        <input type="text" name="location" class="form-control"
+               value="{{ settings.location }}" placeholder="Saint-Lunaire, 35430">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Symbole devise</label>
+        <input type="text" name="currency" class="form-control"
+               value="{{ settings.currency }}" placeholder="€" style="max-width:80px;">
+      </div>
+      <button type="submit" class="btn btn-primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Enregistrer
+      </button>
+    </form>
+  </div>
+
+  <!-- Sauvegarde / Restauration -->
+  <div class="card mb-20">
+    <div class="section-title" style="font-size:16px;margin-bottom:6px;">Sauvegarde & Restauration</div>
+    <p class="text-muted" style="font-size:12px;margin-bottom:20px;">
+      Exportez la base de données complète pour la sauvegarder ou la transférer. La restauration remplace toutes les données actuelles.
+    </p>
+
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">
+      <!-- Export -->
+      <form method="POST">
+        <input type="hidden" name="action" value="export_db">
+        <button type="submit" class="btn btn-outline">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exporter la base (.db)
+        </button>
+      </form>
+
+      <!-- Import -->
+      <form method="POST" enctype="multipart/form-data"
+            onsubmit="return confirm('⚠ Cette action remplacera toutes vos données actuelles. Continuer ?')">
+        <input type="hidden" name="action" value="import_db">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="file" name="db_file" accept=".db" class="form-control" style="max-width:220px;" required>
+          <button type="submit" class="btn btn-danger">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Restaurer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Infos -->
+  <div class="card" style="border-color:#E5E7EB;">
+    <div style="font-size:12px;color:var(--text2);">
+      <div style="margin-bottom:8px;"><strong style="color:var(--text);">SLAMM Finances</strong> — Application de comptabilité locale</div>
+      <div>Association : <strong style="color:var(--text);">{{ settings.association_name }}</strong></div>
+      <div>Localisation : {{ settings.location }}</div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+        Base de données SQLite locale — aucune donnée transmise sur internet.
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

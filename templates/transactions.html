@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Transactions — SLAMM{% endblock %}
+{% block breadcrumb %}Transactions{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('export_csv', **filters) }}" class="btn btn-outline btn-sm">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+  CSV
+</a>
+<a href="{{ url_for('export_excel', **filters) }}" class="btn btn-outline btn-sm">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+  Excel
+</a>
+<button class="btn btn-primary btn-sm" onclick="document.getElementById('modal-add').classList.add('open')">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  Nouvelle transaction
+</button>
+{% endblock %}
+
+{% block content %}
+
+<!-- Filters -->
+<form method="GET" class="card mb-20">
+  <div class="filters-bar">
+    <div class="form-group">
+      <label class="form-label">Recherche</label>
+      <div class="search-wrap">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" name="search" class="form-control" placeholder="Libellé, notes..." value="{{ filters.search }}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Type</label>
+      <select name="type" class="form-control">
+        <option value="">Tous</option>
+        <option value="income" {% if filters.type=='income' %}selected{% endif %}>Entrées</option>
+        <option value="expense" {% if filters.type=='expense' %}selected{% endif %}>Sorties</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Catégorie</label>
+      <select name="category_id" class="form-control">
+        <option value="">Toutes</option>
+        {% for cat in categories %}
+        <option value="{{ cat.id }}" {% if filters.category_id == cat.id|string %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Du</label>
+      <input type="date" name="date_from" class="form-control" value="{{ filters.date_from }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Au</label>
+      <input type="date" name="date_to" class="form-control" value="{{ filters.date_to }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Montant min</label>
+      <input type="number" name="amount_min" class="form-control" step="0.01" placeholder="0.00" value="{{ filters.amount_min }}" style="width:100px;">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Montant max</label>
+      <input type="number" name="amount_max" class="form-control" step="0.01" placeholder="—" value="{{ filters.amount_max }}" style="width:100px;">
+    </div>
+    <div class="form-group">
+      <label class="form-label">&nbsp;</label>
+      <div style="display:flex;gap:8px;">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrer</button>
+        <a href="{{ url_for('transactions') }}" class="btn btn-outline btn-sm">Réinit.</a>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="card">
+  <div class="flex-between mb-16">
+    <span class="text-muted" style="font-size:12px;">{{ total }} transaction(s) trouvée(s)</span>
+  </div>
+
+  {% if transactions %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="sortable">
+            <a href="?{{ request.query_string.decode()|replace('sort=date','')|replace('dir=asc','')|replace('dir=desc','') }}&sort=date&dir={% if filters.sort=='date' and filters.dir=='asc' %}desc{% else %}asc{% endif %}" style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:4px;">
+              Date {% if filters.sort=='date' %}{% if filters.dir=='asc' %}▲{% else %}▼{% endif %}{% endif %}
+            </a>
+          </th>
+          <th class="sortable">
+            <a href="?{{ request.query_string.decode()|replace('sort=label','')|replace('dir=asc','')|replace('dir=desc','') }}&sort=label&dir={% if filters.sort=='label' and filters.dir=='asc' %}desc{% else %}asc{% endif %}" style="color:inherit;text-decoration:none;">
+              Libellé {% if filters.sort=='label' %}{% if filters.dir=='asc' %}▲{% else %}▼{% endif %}{% endif %}
+            </a>
+          </th>
+          <th>Catégorie</th>
+          <th>Type</th>
+          <th class="sortable text-right">
+            <a href="?{{ request.query_string.decode()|replace('sort=amount','')|replace('dir=asc','')|replace('dir=desc','') }}&sort=amount&dir={% if filters.sort=='amount' and filters.dir=='asc' %}desc{% else %}asc{% endif %}" style="color:inherit;text-decoration:none;">
+              Montant {% if filters.sort=='amount' %}{% if filters.dir=='asc' %}▲{% else %}▼{% endif %}{% endif %}
+            </a>
+          </th>
+          <th>PJ</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in transactions %}
+        <tr>
+          <td class="mono text-muted" style="font-size:12px;">{{ tx.date }}</td>
+          <td>
+            <div style="font-weight:500;">{{ tx.label }}</div>
+            {% if tx.notes %}<div style="font-size:11px;color:var(--text2);margin-top:2px;">{{ tx.notes[:60] }}{% if tx.notes|length > 60 %}…{% endif %}</div>{% endif %}
+          </td>
+          <td>
+            {% if tx.category_name %}
+            <span class="badge" style="background: {{ tx.category_color }}22; color: {{ tx.category_color }};">
+              <span class="badge-dot" style="background: {{ tx.category_color }};"></span>
+              {{ tx.category_name }}
+            </span>
+            {% else %}<span class="text-muted" style="font-size:12px;">—</span>{% endif %}
+          </td>
+          <td>
+            <span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;
+              {% if tx.type=='income' %}background:var(--green-dim);color:var(--green);{% else %}background:var(--red-dim);color:#DC2626;{% endif %}">
+              {% if tx.type=='income' %}Entrée{% else %}Sortie{% endif %}
+            </span>
+          </td>
+          <td class="text-right">
+            <span class="amount {{ tx.type }}">
+              {% if tx.type=='income' %}+{% else %}−{% endif %}{{ "%.2f"|format(tx.amount) }} {{ currency }}
+            </span>
+          </td>
+          <td>
+            {% if tx.attachment_path %}
+            <a href="{{ url_for('view_attachment', tx_id=tx.id) }}" target="_blank" class="btn-ghost btn btn-sm" title="Voir la pièce jointe">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </a>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:4px;">
+              <a href="{{ url_for('rapport_receipt', tx_id=tx.id) }}" class="btn btn-outline btn-sm" title="Reçu PDF">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </a>
+              <button class="btn btn-outline btn-sm" onclick="openEditModal({{ tx.id }})" title="Modifier">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="openDeleteModal({{ tx.id }})" title="Supprimer">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if total_pages > 1 %}
+  {% set qs = filters %}
+  <div style="display:flex;justify-content:center;margin-top:20px;">
+    <div class="pagination">
+      <a href="{{ url_for('transactions', page=current_page-1, **qs) }}"
+         class="page-btn {% if current_page == 1 %}disabled{% endif %}">‹</a>
+      {% for p in range(1, total_pages + 1) %}
+        {% if p <= 3 or p >= total_pages - 2 or (p >= current_page - 1 and p <= current_page + 1) %}
+          <a href="{{ url_for('transactions', page=p, **qs) }}"
+             class="page-btn {% if p == current_page %}active{% endif %}">{{ p }}</a>
+        {% elif p == 4 and current_page > 5 %}
+          <span class="page-btn disabled">…</span>
+        {% elif p == total_pages - 3 and current_page < total_pages - 4 %}
+          <span class="page-btn disabled">…</span>
+        {% endif %}
+      {% endfor %}
+      <a href="{{ url_for('transactions', page=current_page+1, **qs) }}"
+         class="page-btn {% if current_page == total_pages %}disabled{% endif %}">›</a>
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="text-center" style="padding: 60px 20px;">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="1.5" style="margin:0 auto 12px;display:block;"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    <p class="text-muted">Aucune transaction trouvée.</p>
+    <button class="btn btn-primary btn-sm mt-16" onclick="document.getElementById('modal-add').classList.add('open')">
+      Ajouter la première transaction
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+{% include '_modal_transaction.html' %}
+{% endblock %}

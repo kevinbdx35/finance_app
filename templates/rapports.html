@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Rapports — SLAMM{% endblock %}
+{% block breadcrumb %}Rapports PDF{% endblock %}
+
+{% block content %}
+
+<div class="grid-2" style="max-width:900px;">
+
+  <!-- Rapport mensuel -->
+  <div class="card">
+    <div class="section-title" style="font-size:16px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" style="vertical-align:middle;margin-right:8px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Rapport mensuel
+    </div>
+    <p class="text-muted" style="font-size:12px;margin-bottom:20px;">
+      Liste complète des transactions d'un mois, totaux et récapitulatif par catégorie.
+    </p>
+    <form method="POST" action="{{ url_for('rapport_monthly') }}">
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Mois</label>
+          <select name="month" class="form-control">
+            {% set months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'] %}
+            {% for i in range(1, 13) %}
+            <option value="{{ i }}" {% if i == current_month %}selected{% endif %}>{{ months[i-1] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Année</label>
+          <select name="year" class="form-control">
+            {% for y in years|reverse %}
+            <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Générer le PDF
+      </button>
+    </form>
+  </div>
+
+  <!-- Rapport annuel -->
+  <div class="card">
+    <div class="section-title" style="font-size:16px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" style="vertical-align:middle;margin-right:8px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Rapport annuel
+    </div>
+    <p class="text-muted" style="font-size:12px;margin-bottom:20px;">
+      Synthèse complète de l'exercice : toutes les transactions, budget vs réalisé, évolution du solde.
+    </p>
+    <form method="POST" action="{{ url_for('rapport_annual') }}">
+      <div class="form-group">
+        <label class="form-label">Année</label>
+        <select name="year" class="form-control">
+          {% for y in years|reverse %}
+          <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:28px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Générer le PDF
+      </button>
+    </form>
+  </div>
+
+</div>
+
+<div class="card mt-20" style="max-width:900px;">
+  <div class="section-title" style="font-size:15px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2" style="vertical-align:middle;margin-right:8px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Reçus individuels
+  </div>
+  <p class="text-muted" style="font-size:12px;">
+    Pour générer le reçu PDF d'une transaction individuelle, cliquez sur l'icône
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    dans la liste des
+    <a href="{{ url_for('transactions') }}" style="color:var(--red);">transactions</a>.
+  </p>
+</div>
+
+{% endblock %}

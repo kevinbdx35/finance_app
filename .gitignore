@@ -1,0 +1,20 @@
+# Base de données (données personnelles)
+slamm_finances.db
+
+# Fichiers uploadés
+uploads/
+documents/
+
+# Environnement virtuel
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+*.png
+slamm_finances_ui_mockup.html
