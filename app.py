@@ -805,4 +805,5 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"ERREUR : impossible d'initialiser la base de données : {e}")
         raise SystemExit(1)
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    port = int(os.environ.get('FLASK_PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)

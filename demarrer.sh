@@ -43,7 +43,7 @@ pip install --quiet -r requirements.txt
 
 echo ""
 echo "Démarrage de l'application SLAMM..."
-echo "Accédez à : http://localhost:5001"
+echo "Accédez à : http://localhost:5000"
 echo ""
 echo "Fermez cette fenêtre (Ctrl+C) pour arrêter l'application."
 echo ""
@@ -57,9 +57,9 @@ APP_PID=$!
 # Attendre 1.5s puis ouvrir le navigateur
 sleep 1.5
 if command -v xdg-open &>/dev/null; then
-    xdg-open http://localhost:5001 2>/dev/null &
+    xdg-open http://localhost:5000 2>/dev/null &
 elif command -v open &>/dev/null; then
-    open http://localhost:5001 2>/dev/null &
+    open http://localhost:5000 2>/dev/null &
 fi
 
 # Attendre la fin du processus Flask
