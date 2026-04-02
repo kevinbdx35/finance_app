@@ -52,7 +52,9 @@ Une fenêtre noire s'ouvre, attendez quelques secondes, puis ouvrez votre naviga
 
 ### Étape 5 — Ouvrir l'application
 
-Allez sur : **http://localhost:5001**
+Le navigateur s'ouvre automatiquement. Si ce n'est pas le cas, allez sur : **http://127.0.0.1:5000**
+
+> Windows : `demarrer.bat` détecte automatiquement si le port 5000 est occupé et bascule sur le port 5001 dans ce cas.
 
 La base de données est créée automatiquement au premier lancement — vous n'avez rien à faire.
 
@@ -125,9 +127,9 @@ Toutes les données sont dans le fichier `slamm_finances.db`.
 |---|---|
 | "Python n'est pas reconnu" | Réinstallez Python en cochant "Add to PATH" |
 | "git n'est pas reconnu" | Installez Git (voir Étape 1) |
-| La page ne s'ouvre pas | Ouvrez manuellement http://localhost:5001 |
+| La page ne s'ouvre pas | Ouvrez manuellement http://127.0.0.1:5000 (ou 5001 si le port 5000 était occupé) |
 | "Permission denied" (Mac/Linux) | Tapez `chmod +x demarrer.sh` dans le terminal |
-| Port déjà utilisé | Changez `5001` en `5002` dans la dernière ligne de `app.py` |
+| Port déjà utilisé | `demarrer.bat` bascule automatiquement sur 5001 — sinon relancez le script |
 | Mise à jour échouée | Ouvrez un terminal dans le dossier et tapez `git pull` manuellement |
 
 ---
@@ -140,7 +142,7 @@ Toutes les données sont dans le fichier `slamm_finances.db`.
 .venv/bin/python tests.py
 ```
 
-73 tests couvrant toutes les routes, le CRUD, les exports, la génération PDF et la sécurité des fichiers.
+83 tests couvrant toutes les routes, le CRUD, les exports, la génération PDF, la sécurité des fichiers et les validations.
 
 ### Incrémenter la version manuellement
 
