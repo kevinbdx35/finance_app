@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Erreur {{ code }} — SLAMM{% endblock %}
+{% block breadcrumb %}Erreur{% endblock %}
+
+{% block content %}
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;">
+  <div style="font-family:'Barlow Condensed',sans-serif;font-size:80px;font-weight:700;color:var(--border);line-height:1;">
+    {{ code }}
+  </div>
+  <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:600;color:var(--text);margin-top:8px;">
+    {% if code == 404 %}Page introuvable{% else %}Erreur serveur{% endif %}
+  </div>
+  <p style="color:var(--text2);font-size:13px;margin-top:10px;max-width:400px;">{{ message }}</p>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-primary mt-20">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    Retour au tableau de bord
+  </a>
+</div>
+{% endblock %}

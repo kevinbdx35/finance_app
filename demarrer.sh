@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
+# Se placer dans le répertoire du script quel que soit l'endroit depuis lequel il est lancé
+cd "$(dirname "$0")"
+
 echo "======================================"
 echo "  SLAMM — Finances MMA Saint-Lunaire"
 echo "======================================"

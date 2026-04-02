@@ -101,6 +101,9 @@
       <!-- Ajouter catégorie manquante -->
       {% set existing_income_ids = income_rows | map(attribute='category_id') | list %}
       {% set missing_income = categories | selectattr('type', 'in', ['income', 'both']) | list %}
+      {% set has_missing_income = namespace(value=false) %}
+      {% for cat in missing_income %}{% if cat.id not in existing_income_ids %}{% set has_missing_income.value = true %}{% endif %}{% endfor %}
+      {% if has_missing_income.value %}
       <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
         <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Ajouter une catégorie au budget :</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -115,6 +118,7 @@
           {% endfor %}
         </div>
       </div>
+      {% endif %}
     </div>
 
     <!-- Sorties -->
@@ -173,6 +177,9 @@
       <!-- Ajouter catégorie manquante -->
       {% set existing_expense_ids = expense_rows | map(attribute='category_id') | list %}
       {% set missing_expense = categories | selectattr('type', 'in', ['expense', 'both']) | list %}
+      {% set has_missing_expense = namespace(value=false) %}
+      {% for cat in missing_expense %}{% if cat.id not in existing_expense_ids %}{% set has_missing_expense.value = true %}{% endif %}{% endfor %}
+      {% if has_missing_expense.value %}
       <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
         <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Ajouter une catégorie au budget :</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -187,6 +194,7 @@
           {% endfor %}
         </div>
       </div>
+      {% endif %}
     </div>
   </div>
 

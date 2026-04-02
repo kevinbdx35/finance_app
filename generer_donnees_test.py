@@ -18,6 +18,19 @@ db.init_db()
 conn = db.get_connection()
 c = conn.cursor()
 
+# Vider les données existantes avant d'insérer (évite les doublons)
+print("Nettoyage des données existantes...")
+# Supprimer les fichiers documents placeholders
+existing_docs = conn.execute("SELECT file_path FROM documents").fetchall()
+for row in existing_docs:
+    fpath = os.path.join('documents', row[0])
+    if os.path.exists(fpath):
+        os.remove(fpath)
+c.execute("DELETE FROM transactions")
+c.execute("DELETE FROM budget")
+c.execute("DELETE FROM documents")
+conn.commit()
+
 # Récupérer les catégories
 categories = {r['name']: r['id'] for r in conn.execute("SELECT * FROM categories").fetchall()}
 
@@ -259,5 +272,5 @@ print("\n✅ Données de test générées avec succès !")
 print(f"   → {len(transactions)} transactions")
 print(f"   → Budgets pour {today.year-1} et {today.year}")
 print(f"   → {len(docs)} documents fictifs")
-print("\nLancez l'application : python app.py")
-print("Puis ouvrez : http://localhost:5000")
+print("\nLancez l'application : .venv/bin/python app.py")
+print("Puis ouvrez : http://localhost:5001")

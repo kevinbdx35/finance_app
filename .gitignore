@@ -1,6 +1,9 @@
 # Base de données (données personnelles)
 slamm_finances.db
 
+# Clé secrète générée automatiquement
+.secret_key
+
 # Fichiers uploadés
 uploads/
 documents/

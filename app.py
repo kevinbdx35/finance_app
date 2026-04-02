@@ -2,6 +2,11 @@ import os
 import io
 import csv
 import json
+import sys
+import time
+import secrets
+import subprocess
+import urllib.request
 from datetime import datetime, date
 from flask import (
     Flask, render_template, request, redirect, url_for,
@@ -13,7 +18,16 @@ import database as db
 import pdf_generator as pdf
 
 app = Flask(__name__)
-app.secret_key = 'slamm-mma-saint-lunaire-2024'
+
+# Clé secrète persistante générée automatiquement au premier lancement
+_KEY_FILE = os.path.join(os.path.dirname(__file__), '.secret_key')
+if os.path.exists(_KEY_FILE):
+    with open(_KEY_FILE) as _f:
+        app.secret_key = _f.read().strip()
+else:
+    app.secret_key = secrets.token_hex(32)
+    with open(_KEY_FILE, 'w') as _f:
+        _f.write(app.secret_key)
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 DOCUMENTS_FOLDER = os.path.join(os.path.dirname(__file__), 'documents')
@@ -27,9 +41,49 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+MAGIC_BYTES = {
+    b'%PDF': 'pdf',
+    b'\x89PNG': 'png',
+    b'\xff\xd8': 'jpg',
+    b'GIF8': 'gif',
+    b'RIFF': 'webp',
+}
+
+def valid_file_content(file):
+    header = file.read(8)
+    file.seek(0)
+    for magic, _ in MAGIC_BYTES.items():
+        if header[:len(magic)] == magic:
+            return True
+    return False
+
+
 def get_currency():
     settings = db.get_settings()
     return settings.get('currency', '€')
+
+
+GITHUB_VERSION_URL = (
+    'https://raw.githubusercontent.com/kevinbdx35/finance_app/main/VERSION'
+)
+_update_cache = {'checked_at': 0.0, 'remote_version': None, 'error': None}
+_UPDATE_TTL = 600  # secondes entre deux vérifications (10 min)
+
+
+def get_version():
+    try:
+        version_file = os.path.join(os.path.dirname(__file__), 'VERSION')
+        with open(version_file) as f:
+            return f.read().strip()
+    except Exception:
+        return '1.0.0'
+
+
+def _parse_version(v):
+    try:
+        return tuple(int(x) for x in v.strip().split('.'))
+    except Exception:
+        return (0, 0, 0)
 
 
 @app.context_processor
@@ -41,6 +95,7 @@ def inject_globals():
         settings=settings,
         sidebar_balance=balance,
         sidebar_last_update=last_update,
+        app_version=get_version(),
     )
 
 
@@ -66,6 +121,7 @@ def dashboard():
     donut_data = db.get_category_donut_data(year, month)
     last_transactions = db.get_last_transactions(5)
     budget_alerts = db.get_budget_alerts(year, month)
+    categories = db.get_categories()
 
     def delta(cur, prev):
         if prev == 0:
@@ -85,6 +141,7 @@ def dashboard():
         donut_data=json.dumps(donut_data),
         last_transactions=last_transactions,
         budget_alerts=budget_alerts,
+        categories=categories,
         currency=get_currency(),
         current_month=f"{month:02d}/{year}",
     )
@@ -141,6 +198,9 @@ def add_transaction():
     attachment_path = None
     file = request.files.get('attachment')
     if file and file.filename and allowed_file(file.filename):
+        if not valid_file_content(file):
+            flash('Fichier invalide ou corrompu.', 'error')
+            return redirect(url_for('transactions'))
         filename = secure_filename(file.filename)
         ts = datetime.now().strftime('%Y%m%d_%H%M%S_')
         filename = ts + filename
@@ -151,11 +211,11 @@ def add_transaction():
         amount = float(data['amount'])
         db.create_transaction(
             date=data['date'],
-            label=data['label'],
+            label=data['label'][:200],
             amount=amount,
             typ=data['type'],
             category_id=data.get('category_id') or None,
-            notes=data.get('notes', ''),
+            notes=data.get('notes', '')[:500],
             attachment_path=attachment_path,
         )
         flash('Transaction ajoutée.', 'success')
@@ -176,7 +236,9 @@ def edit_transaction(tx_id):
 
     file = request.files.get('attachment')
     if file and file.filename and allowed_file(file.filename):
-        # Remove old file
+        if not valid_file_content(file):
+            flash('Fichier invalide ou corrompu.', 'error')
+            return redirect(url_for('transactions'))
         if attachment_path:
             old = os.path.join(UPLOAD_FOLDER, attachment_path)
             if os.path.exists(old):
@@ -198,11 +260,11 @@ def edit_transaction(tx_id):
         db.update_transaction(
             tx_id=tx_id,
             date=data['date'],
-            label=data['label'],
+            label=data['label'][:200],
             amount=float(data['amount']),
             typ=data['type'],
             category_id=data.get('category_id') or None,
-            notes=data.get('notes', ''),
+            notes=data.get('notes', '')[:500],
             attachment_path=attachment_path,
         )
         flash('Transaction mise à jour.', 'success')
@@ -231,16 +293,23 @@ def view_attachment(tx_id):
     return send_file(os.path.join(UPLOAD_FOLDER, tx['attachment_path']))
 
 
+def _extract_filters(args):
+    filters = {}
+    for key in ('type', 'category_id', 'date_from', 'date_to', 'search', 'sort', 'dir'):
+        if args.get(key):
+            filters[key] = args[key]
+    for key in ('amount_min', 'amount_max'):
+        try:
+            v = float(args[key])
+            filters[key] = v
+        except (KeyError, TypeError, ValueError):
+            pass
+    return filters
+
+
 @app.route('/transactions/export/csv')
 def export_csv():
-    filters = {
-        'type': request.args.get('type', ''),
-        'category_id': request.args.get('category_id', ''),
-        'date_from': request.args.get('date_from', ''),
-        'date_to': request.args.get('date_to', ''),
-        'search': request.args.get('search', ''),
-    }
-    clean_filters = {k: v for k, v in filters.items() if v}
+    clean_filters = _extract_filters(request.args)
     txs, _ = db.get_transactions(clean_filters, page=1, per_page=99999)
     currency = get_currency()
 
@@ -273,8 +342,8 @@ def export_excel():
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
 
-    filters = {k: v for k, v in request.args.items() if v}
-    txs, _ = db.get_transactions(filters, page=1, per_page=99999)
+    clean_filters = _extract_filters(request.args)
+    txs, _ = db.get_transactions(clean_filters, page=1, per_page=99999)
     currency = get_currency()
 
     wb = Workbook()
@@ -359,6 +428,7 @@ def documents():
         categories=db.DOCUMENT_CATEGORIES,
         search=search,
         active_category=category,
+        today=date.today().isoformat(),
     )
 
 
@@ -394,6 +464,20 @@ def download_document(doc_id):
     if not os.path.exists(path):
         abort(404)
     return send_file(path, as_attachment=True, download_name=doc['name'])
+
+
+@app.route('/documents/<int:doc_id>/edit', methods=['POST'])
+def edit_document(doc_id):
+    doc = db.get_document(doc_id)
+    if not doc:
+        abort(404)
+    name = request.form.get('name', '').strip() or doc['name']
+    date_val = request.form.get('date') or doc['date']
+    category = request.form.get('category') or doc['category']
+    notes = request.form.get('notes', '')
+    db.update_document(doc_id, name[:200], date_val, category, notes[:500])
+    flash('Document mis à jour.', 'success')
+    return redirect(url_for('documents'))
 
 
 @app.route('/documents/<int:doc_id>/delete', methods=['POST'])
@@ -502,14 +586,7 @@ def rapport_receipt(tx_id):
 @app.route('/categories')
 def categories():
     cats = db.get_categories()
-    usage = {}
-    for cat in cats:
-        conn = db.get_connection()
-        count = conn.execute(
-            "SELECT COUNT(*) FROM transactions WHERE category_id=?", (cat['id'],)
-        ).fetchone()[0]
-        conn.close()
-        usage[cat['id']] = count
+    usage = db.get_categories_usage()
     return render_template('categories.html',
         page='categories',
         categories=cats,
@@ -595,6 +672,98 @@ def api_transaction(tx_id):
     return jsonify(tx)
 
 
+@app.route('/api/document/<int:doc_id>')
+def api_document(doc_id):
+    doc = db.get_document(doc_id)
+    if not doc:
+        return jsonify({'error': 'Not found'}), 404
+    return jsonify(doc)
+
+
+# ── Mise à jour automatique ───────────────────────────────────────────────────
+
+@app.route('/api/check-update')
+def api_check_update():
+    """Vérifie si une nouvelle version est disponible sur GitHub (cache 10 min)."""
+    now = time.time()
+    if now - _update_cache['checked_at'] > _UPDATE_TTL:
+        try:
+            req = urllib.request.Request(
+                GITHUB_VERSION_URL,
+                headers={'Cache-Control': 'no-cache'},
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                _update_cache['remote_version'] = resp.read().decode().strip()
+            _update_cache['error'] = None
+        except Exception as e:
+            _update_cache['error'] = str(e)
+        _update_cache['checked_at'] = now
+
+    local = get_version()
+    remote = _update_cache['remote_version']
+    update_available = bool(
+        remote and _parse_version(remote) > _parse_version(local)
+    )
+    return jsonify({
+        'local_version': local,
+        'remote_version': remote,
+        'update_available': update_available,
+        'error': _update_cache.get('error'),
+    })
+
+
+@app.route('/admin/update', methods=['POST'])
+def admin_update():
+    """Exécute git pull puis redémarre l'application."""
+    repo_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        output = subprocess.check_output(
+            ['git', 'pull'],
+            cwd=repo_dir,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        return jsonify({'success': False, 'error': e.output}), 500
+
+    # Invalide le cache de version pour relire le nouveau fichier
+    _update_cache['checked_at'] = 0.0
+
+    # Redémarre le process Python dans 1 seconde (laisse le temps de répondre)
+    import threading
+    def _restart():
+        time.sleep(1)
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+    threading.Thread(target=_restart, daemon=True).start()
+
+    return jsonify({'success': True, 'output': output})
+
+
+# ── Erreurs personnalisées ────────────────────────────────────────────────────
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('error.html', code=404,
+                           message="Page introuvable."), 404
+
+
+@app.errorhandler(500)
+def server_error(e):
+    app.logger.error(f"Erreur serveur : {e}")
+    return render_template('error.html', code=500,
+                           message="Erreur interne du serveur."), 500
+
+
 if __name__ == '__main__':
-    db.init_db()
+    import logging
+    logging.basicConfig(
+        filename=os.path.join(os.path.dirname(__file__), 'slamm.log'),
+        level=logging.WARNING,
+        format='%(asctime)s %(levelname)s %(message)s',
+    )
+    try:
+        db.init_db()
+    except Exception as e:
+        print(f"ERREUR : impossible d'initialiser la base de données : {e}")
+        raise SystemExit(1)
     app.run(host='0.0.0.0', port=5001, debug=False)

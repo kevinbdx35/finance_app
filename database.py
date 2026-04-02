@@ -101,6 +101,11 @@ def init_db():
             VALUES (?, ?, ?, 1)
         """, (name, typ, color))
 
+    # Index pour accélérer les filtres fréquents
+    c.execute("CREATE INDEX IF NOT EXISTS idx_tx_date     ON transactions(date)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_tx_type     ON transactions(type)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_tx_category ON transactions(category_id)")
+
     conn.commit()
     conn.close()
 
@@ -141,6 +146,19 @@ def get_category(cat_id):
     row = conn.execute("SELECT * FROM categories WHERE id = ?", (cat_id,)).fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+def get_categories_usage():
+    """Retourne {category_id: count} en une seule requête."""
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT c.id, COUNT(t.id) as count
+        FROM categories c
+        LEFT JOIN transactions t ON t.category_id = c.id
+        GROUP BY c.id
+    """).fetchall()
+    conn.close()
+    return {r['id']: r['count'] for r in rows}
 
 
 def create_category(name, typ, color):
@@ -302,14 +320,14 @@ def get_monthly_stats(year, month):
 
 def get_total_balance():
     conn = get_connection()
-    income = conn.execute(
-        "SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='income'"
-    ).fetchone()[0]
-    expense = conn.execute(
-        "SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='expense'"
-    ).fetchone()[0]
+    row = conn.execute("""
+        SELECT
+            COALESCE(SUM(CASE WHEN type='income'  THEN amount ELSE 0 END), 0) as income,
+            COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END), 0) as expense
+        FROM transactions
+    """).fetchone()
     conn.close()
-    return float(income) - float(expense)
+    return float(row['income']) - float(row['expense'])
 
 
 def get_last_transactions(n=5):
@@ -493,6 +511,16 @@ def create_document(name, date, category, notes, file_path):
     return doc_id
 
 
+def update_document(doc_id, name, date, category, notes):
+    conn = get_connection()
+    conn.execute(
+        "UPDATE documents SET name=?, date=?, category=?, notes=? WHERE id=?",
+        (name, date, category, notes, doc_id)
+    )
+    conn.commit()
+    conn.close()
+
+
 def delete_document(doc_id):
     conn = get_connection()
     row = conn.execute("SELECT file_path FROM documents WHERE id=?", (doc_id,)).fetchone()
@@ -530,17 +558,24 @@ def get_transactions_for_report(year, month=None):
 def get_category_summary(year, month=None):
     conn = get_connection()
     if month:
-        date_filter = f"AND t.date LIKE '{year:04d}-{month:02d}%'"
+        rows = conn.execute("""
+            SELECT c.name as category_name, c.color, t.type,
+                   COALESCE(SUM(t.amount), 0) as total
+            FROM transactions t
+            LEFT JOIN categories c ON t.category_id = c.id
+            WHERE t.date LIKE ?
+            GROUP BY t.category_id, t.type
+            ORDER BY t.type, total DESC
+        """, (f"{year:04d}-{month:02d}%",)).fetchall()
     else:
-        date_filter = f"AND strftime('%Y', t.date) = '{year}'"
-    rows = conn.execute(f"""
-        SELECT c.name as category_name, c.color, t.type,
-               COALESCE(SUM(t.amount), 0) as total
-        FROM transactions t
-        LEFT JOIN categories c ON t.category_id = c.id
-        WHERE 1=1 {date_filter}
-        GROUP BY t.category_id, t.type
-        ORDER BY t.type, total DESC
-    """).fetchall()
+        rows = conn.execute("""
+            SELECT c.name as category_name, c.color, t.type,
+                   COALESCE(SUM(t.amount), 0) as total
+            FROM transactions t
+            LEFT JOIN categories c ON t.category_id = c.id
+            WHERE strftime('%Y', t.date) = ?
+            GROUP BY t.category_id, t.type
+            ORDER BY t.type, total DESC
+        """, (str(year),)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
