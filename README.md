@@ -41,8 +41,15 @@ cd finance_app
 
 ### Étape 4 — Lancer l'application
 
-**Windows** — double-cliquez sur le fichier `demarrer.bat`  
-Une fenêtre noire s'ouvre, attendez quelques secondes, puis ouvrez votre navigateur.
+**Windows** — double-cliquez sur le fichier `demarrer.bat`
+
+La fenêtre noire effectue automatiquement :
+- Vérification de Python
+- Détection du port disponible (5000, ou 5001 si occupé)
+- Autorisation du port dans le pare-feu Windows
+- Création de l'environnement virtuel (première fois uniquement)
+- Installation des dépendances
+- Lancement de Flask + ouverture du navigateur
 
 **Mac / Linux** :
 ```bash
@@ -52,11 +59,11 @@ Une fenêtre noire s'ouvre, attendez quelques secondes, puis ouvrez votre naviga
 
 ### Étape 5 — Ouvrir l'application
 
-Le navigateur s'ouvre automatiquement. Si ce n'est pas le cas, allez sur : **http://127.0.0.1:5000**
+Le navigateur s'ouvre automatiquement sur **http://127.0.0.1:5000**
 
-> Windows : `demarrer.bat` détecte automatiquement si le port 5000 est occupé et bascule sur le port 5001 dans ce cas.
+Si ce n'est pas le cas, ouvrez-le manuellement à cette adresse.
 
-La base de données est créée automatiquement au premier lancement — vous n'avez rien à faire.
+> La base de données est créée automatiquement au premier lancement — vous n'avez rien à faire.
 
 Pour arrêter l'application : fermez la fenêtre noire (Windows) ou faites `Ctrl+C` dans le terminal.
 
@@ -125,11 +132,13 @@ Toutes les données sont dans le fichier `slamm_finances.db`.
 
 | Problème | Solution |
 |---|---|
-| "Python n'est pas reconnu" | Réinstallez Python en cochant "Add to PATH" |
+| "Python n'est pas reconnu" | Réinstallez Python en cochant **"Add Python to PATH"** |
 | "git n'est pas reconnu" | Installez Git (voir Étape 1) |
-| La page ne s'ouvre pas | Ouvrez manuellement http://127.0.0.1:5000 (ou 5001 si le port 5000 était occupé) |
+| La fenêtre se ferme immédiatement | Lancez `demarrer.bat` depuis l'explorateur (double-clic), pas depuis cmd |
+| La page ne s'ouvre pas | Ouvrez manuellement **http://127.0.0.1:5000** (ou 5001) |
 | "Permission denied" (Mac/Linux) | Tapez `chmod +x demarrer.sh` dans le terminal |
-| Port déjà utilisé | `demarrer.bat` bascule automatiquement sur 5001 — sinon relancez le script |
+| Port déjà utilisé | `demarrer.bat` bascule automatiquement sur 5001 |
+| Pare-feu bloque l'accès | `demarrer.bat` ajoute la règle automatiquement — sinon autorisez Python manuellement |
 | Mise à jour échouée | Ouvrez un terminal dans le dossier et tapez `git pull` manuellement |
 
 ---
