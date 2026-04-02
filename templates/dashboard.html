@@ -147,6 +147,7 @@
 <script>
 const chartData = {{ chart_data|safe }};
 const donutData = {{ donut_data|safe }};
+const CURRENCY = {{ currency|tojson }};
 
 // Bar chart
 const barCtx = document.getElementById('barChart').getContext('2d');
@@ -184,14 +185,14 @@ new Chart(barCtx, {
         titleColor: '#888',
         bodyColor: '#111827',
         callbacks: {
-          label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} €`
+          label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} ${CURRENCY}`
         }
       }
     },
     scales: {
       x: { grid: { color: '#F3F4F6' }, ticks: { color: '#888', font: { size: 10 } } },
       y: { grid: { color: '#F3F4F6' }, ticks: { color: '#888', font: { size: 10 },
-        callback: v => v.toFixed(0) + ' €' } },
+        callback: v => v.toFixed(0) + ' ' + CURRENCY } },
     }
   }
 });
@@ -225,7 +226,7 @@ if (donutData.length > 0) {
           titleColor: '#888',
           bodyColor: '#111827',
           callbacks: {
-            label: ctx => ` ${ctx.parsed.toFixed(2)} €`
+            label: ctx => ` ${ctx.parsed.toFixed(2)} ${CURRENCY}`
           }
         }
       }
