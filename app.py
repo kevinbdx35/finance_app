@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import csv
 import json
 import sys
@@ -192,12 +193,26 @@ def transactions():
         total_pages=total_pages,
         filters=filters,
         currency=get_currency(),
+        today=date.today().isoformat(),
     )
 
 
 @app.route('/transactions/add', methods=['POST'])
 def add_transaction():
     data = request.form
+
+    # Validation des champs requis
+    date_val   = data.get('date', '').strip()
+    label_val  = data.get('label', '').strip()
+    type_val   = data.get('type', '').strip()
+    amount_str = data.get('amount', '').strip()
+    if not date_val or not label_val or not type_val or not amount_str:
+        flash('Tous les champs obligatoires doivent être remplis.', 'error')
+        return redirect(url_for('transactions'))
+    if type_val not in ('income', 'expense'):
+        flash('Type de transaction invalide.', 'error')
+        return redirect(url_for('transactions'))
+
     attachment_path = None
     file = request.files.get('attachment')
     if file and file.filename and allowed_file(file.filename):
@@ -207,19 +222,23 @@ def add_transaction():
         filename = secure_filename(file.filename)
         ts = datetime.now().strftime('%Y%m%d_%H%M%S_')
         filename = ts + filename
-        file.save(os.path.join(UPLOAD_FOLDER, filename))
+        try:
+            file.save(os.path.join(UPLOAD_FOLDER, filename))
+        except OSError as e:
+            flash(f'Impossible de sauvegarder la pièce jointe : {e}', 'error')
+            return redirect(url_for('transactions'))
         attachment_path = filename
 
     try:
-        amount = float(data['amount'])
+        amount = float(amount_str)
         if amount < 0:
             flash('Le montant ne peut pas être négatif.', 'error')
             return redirect(url_for('transactions'))
         db.create_transaction(
-            date=data['date'],
-            label=data['label'][:200],
+            date=date_val,
+            label=label_val[:200],
             amount=amount,
-            typ=data['type'],
+            typ=type_val,
             category_id=data.get('category_id') or None,
             notes=data.get('notes', '')[:500],
             attachment_path=attachment_path,
@@ -238,6 +257,19 @@ def edit_transaction(tx_id):
         abort(404)
 
     data = request.form
+
+    # Validation des champs requis
+    date_val   = data.get('date', '').strip()
+    label_val  = data.get('label', '').strip()
+    type_val   = data.get('type', '').strip()
+    amount_str = data.get('amount', '').strip()
+    if not date_val or not label_val or not type_val or not amount_str:
+        flash('Tous les champs obligatoires doivent être remplis.', 'error')
+        return redirect(url_for('transactions'))
+    if type_val not in ('income', 'expense'):
+        flash('Type de transaction invalide.', 'error')
+        return redirect(url_for('transactions'))
+
     attachment_path = tx['attachment_path']
 
     file = request.files.get('attachment')
@@ -247,32 +279,42 @@ def edit_transaction(tx_id):
             return redirect(url_for('transactions'))
         if attachment_path:
             old = os.path.join(UPLOAD_FOLDER, attachment_path)
-            if os.path.exists(old):
-                os.remove(old)
+            try:
+                if os.path.exists(old):
+                    os.remove(old)
+            except OSError:
+                app.logger.warning(f"Impossible de supprimer l'ancienne pièce jointe : {old}")
         filename = secure_filename(file.filename)
         ts = datetime.now().strftime('%Y%m%d_%H%M%S_')
         filename = ts + filename
-        file.save(os.path.join(UPLOAD_FOLDER, filename))
+        try:
+            file.save(os.path.join(UPLOAD_FOLDER, filename))
+        except OSError as e:
+            flash(f'Impossible de sauvegarder la pièce jointe : {e}', 'error')
+            return redirect(url_for('transactions'))
         attachment_path = filename
 
     # Remove attachment if requested
     if data.get('remove_attachment') == '1' and attachment_path:
         old = os.path.join(UPLOAD_FOLDER, attachment_path)
-        if os.path.exists(old):
-            os.remove(old)
+        try:
+            if os.path.exists(old):
+                os.remove(old)
+        except OSError:
+            app.logger.warning(f"Impossible de supprimer la pièce jointe : {old}")
         attachment_path = None
 
     try:
-        amount = float(data['amount'])
+        amount = float(amount_str)
         if amount < 0:
             flash('Le montant ne peut pas être négatif.', 'error')
             return redirect(url_for('transactions'))
         db.update_transaction(
             tx_id=tx_id,
-            date=data['date'],
-            label=data['label'][:200],
+            date=date_val,
+            label=label_val[:200],
             amount=amount,
-            typ=data['type'],
+            typ=type_val,
             category_id=data.get('category_id') or None,
             notes=data.get('notes', '')[:500],
             attachment_path=attachment_path,
@@ -457,7 +499,11 @@ def add_document():
     filename = secure_filename(file.filename)
     ts = datetime.now().strftime('%Y%m%d_%H%M%S_')
     filename = ts + filename
-    file.save(os.path.join(DOCUMENTS_FOLDER, filename))
+    try:
+        file.save(os.path.join(DOCUMENTS_FOLDER, filename))
+    except OSError as e:
+        flash(f'Impossible de sauvegarder le fichier : {e}', 'error')
+        return redirect(url_for('documents'))
 
     db.create_document(
         name=request.form.get('name', filename),
@@ -482,7 +528,8 @@ def download_document(doc_id):
         abort(404)
     if not os.path.exists(safe_path):
         abort(404)
-    return send_file(safe_path, as_attachment=True, download_name=doc['name'])
+    safe_name = re.sub(r'[\r\n\x00-\x1f]', '_', doc['name'])
+    return send_file(safe_path, as_attachment=True, download_name=safe_name)
 
 
 @app.route('/documents/<int:doc_id>/view')
