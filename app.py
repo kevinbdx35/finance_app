@@ -787,20 +787,33 @@ def api_check_update():
     })
 
 
+GITHUB_REPO_HTTPS = 'https://github.com/kevinbdx35/finance_app.git'
+
 @app.route('/admin/update', methods=['POST'])
 def admin_update():
-    """Exécute git pull puis redémarre l'application."""
+    """Exécute git pull via HTTPS puis redémarre l'application."""
     repo_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Vérifier que c'est bien un dépôt git (pas une install par ZIP)
+    if not os.path.isdir(os.path.join(repo_dir, '.git')):
+        return jsonify({
+            'success': False,
+            'error': "L'application n'a pas été installée via git clone. "
+                     "Téléchargez manuellement la nouvelle version sur GitHub.",
+        }), 400
+
     try:
         output = subprocess.check_output(
-            ['git', 'pull'],
+            ['git', 'pull', GITHUB_REPO_HTTPS, 'main'],
             cwd=repo_dir,
             stderr=subprocess.STDOUT,
             text=True,
-            timeout=30,
+            timeout=60,
         )
+    except FileNotFoundError:
+        return jsonify({'success': False, 'error': 'git non trouvé sur ce système.'}), 500
     except subprocess.TimeoutExpired:
-        return jsonify({'success': False, 'error': 'git pull a expiré (timeout 30s).'}), 500
+        return jsonify({'success': False, 'error': 'git pull a expiré (timeout 60s).'}), 500
     except subprocess.CalledProcessError as e:
         return jsonify({'success': False, 'error': e.output}), 500
 
