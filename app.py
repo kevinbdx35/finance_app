@@ -802,16 +802,19 @@ def admin_update():
                      "Téléchargez manuellement la nouvelle version sur GitHub.",
         }), 400
 
+    # Encodage UTF-8 explicite (évite les erreurs CP1252 sur Windows)
+    enc = 'utf-8'
     try:
         output = subprocess.check_output(
             ['git', 'pull', GITHUB_REPO_HTTPS, 'main'],
             cwd=repo_dir,
             stderr=subprocess.STDOUT,
-            text=True,
+            encoding=enc,
+            errors='replace',
             timeout=60,
         )
     except FileNotFoundError:
-        return jsonify({'success': False, 'error': 'git non trouvé sur ce système.'}), 500
+        return jsonify({'success': False, 'error': 'git non trouvé. Installez Git depuis https://git-scm.com/download/win'}), 500
     except subprocess.TimeoutExpired:
         return jsonify({'success': False, 'error': 'git pull a expiré (timeout 60s).'}), 500
     except subprocess.CalledProcessError as e:
@@ -820,13 +823,19 @@ def admin_update():
     # Invalide le cache de version pour relire le nouveau fichier
     _update_cache['checked_at'] = 0.0
 
-    # Redémarre le process Python dans 1 seconde (laisse le temps de répondre)
-    # os.execv n'est pas fiable sur Windows : on utilise Popen + _exit à la place
+    # Redémarre le process Python 2 s après la réponse
     import threading
     def _restart():
-        time.sleep(1)
+        time.sleep(2)
         if sys.platform == 'win32':
-            subprocess.Popen([sys.executable] + sys.argv)
+            # DETACHED_PROCESS + CREATE_NEW_PROCESS_GROUP : le nouveau process
+            # survit à la mort du parent et obtient son propre groupe de processus.
+            flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+            subprocess.Popen(
+                [sys.executable] + sys.argv,
+                creationflags=flags,
+                close_fds=True,
+            )
             os._exit(0)
         else:
             os.execv(sys.executable, [sys.executable] + sys.argv)
