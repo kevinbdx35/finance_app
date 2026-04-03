@@ -533,6 +533,22 @@ def delete_document(doc_id):
 
 # ── Reports helpers ───────────────────────────────────────────────────────────
 
+def get_transactions_for_season(start_year):
+    """Transactions du 1er septembre start_year au 31 août start_year+1."""
+    conn = get_connection()
+    start = f"{start_year:04d}-09-01"
+    end   = f"{start_year + 1:04d}-08-31"
+    rows = conn.execute("""
+        SELECT t.*, c.name as category_name
+        FROM transactions t
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.date >= ? AND t.date <= ?
+        ORDER BY t.date, t.id
+    """, (start, end)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 def get_transactions_for_report(year, month=None):
     conn = get_connection()
     if month:

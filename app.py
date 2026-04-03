@@ -485,6 +485,21 @@ def download_document(doc_id):
     return send_file(safe_path, as_attachment=True, download_name=doc['name'])
 
 
+@app.route('/documents/<int:doc_id>/view')
+def view_document(doc_id):
+    doc = db.get_document(doc_id)
+    if not doc:
+        abort(404)
+    real_folder = os.path.realpath(DOCUMENTS_FOLDER)
+    safe_path = os.path.realpath(os.path.join(DOCUMENTS_FOLDER, doc['file_path']))
+    if not safe_path.startswith(real_folder + os.sep):
+        app.logger.warning(f"Path traversal bloqué (view document) : {doc['file_path']}")
+        abort(404)
+    if not os.path.exists(safe_path):
+        abort(404)
+    return send_file(safe_path, as_attachment=False)
+
+
 @app.route('/documents/<int:doc_id>/edit', methods=['POST'])
 def edit_document(doc_id):
     doc = db.get_document(doc_id)
@@ -559,12 +574,23 @@ def save_budget():
 
 @app.route('/rapports')
 def rapports():
-    years = list(range(date.today().year - 3, date.today().year + 1))
+    today = date.today()
+    years = list(range(2020, today.year + 1))
+    # Saisons disponibles : on commence la saison si on est ≥ septembre,
+    # sinon la saison en cours démarre l'année précédente.
+    first_season = 2020
+    if today.month >= 9:
+        last_season_start = today.year
+    else:
+        last_season_start = today.year - 1
+    seasons = list(range(first_season, last_season_start + 1))
     return render_template('rapports.html',
         page='rapports',
         years=years,
-        current_year=date.today().year,
-        current_month=date.today().month,
+        seasons=seasons,
+        current_year=today.year,
+        current_month=today.month,
+        current_season=last_season_start,
     )
 
 
@@ -598,6 +624,19 @@ def rapport_annual():
     buf = pdf.generate_annual_report(txs, budget_data, year, currency)
     return send_file(buf, mimetype='application/pdf', as_attachment=True,
                      download_name=f"slamm_rapport_annuel_{year}.pdf")
+
+
+@app.route('/rapports/season', methods=['POST'])
+def rapport_season():
+    try:
+        start_year = int(request.form['start_year'])
+    except (ValueError, KeyError):
+        abort(400)
+    currency = get_currency()
+    txs = db.get_transactions_for_season(start_year)
+    buf = pdf.generate_season_report(txs, start_year, currency)
+    return send_file(buf, mimetype='application/pdf', as_attachment=True,
+                     download_name=f"slamm_saison_{start_year}-{start_year + 1}.pdf")
 
 
 @app.route('/rapports/receipt/<int:tx_id>')

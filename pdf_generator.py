@@ -257,6 +257,38 @@ def generate_annual_report(transactions, budget_data, year, currency='€'):
     return buffer
 
 
+def generate_season_report(transactions, start_year, currency='€'):
+    """Rapport couvrant la saison sportive : sep start_year → août start_year+1."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=1.8 * cm, rightMargin=1.8 * cm,
+        topMargin=1.5 * cm, bottomMargin=1.5 * cm,
+    )
+    label = f"Saison {start_year}-{start_year + 1}"
+    period = f"1er septembre {start_year} — 31 août {start_year + 1}"
+    heading_style, normal_style = _HEADING_STYLE, _NORMAL_STYLE
+    elements = _header_elements(f"Rapport de saison {start_year}-{start_year + 1}", period)
+
+    income  = sum(t['amount'] for t in transactions if t['type'] == 'income')
+    expense = sum(t['amount'] for t in transactions if t['type'] == 'expense')
+    balance = income - expense
+
+    elements.append(Paragraph(f"Synthèse — {label}", heading_style))
+    elements.append(_summary_table(income, expense, balance, currency))
+    elements.append(Spacer(1, 0.5 * cm))
+
+    elements.append(Paragraph(f"Toutes les transactions ({len(transactions)})", heading_style))
+    if transactions:
+        elements.append(_tx_table(transactions, currency))
+    else:
+        elements.append(Paragraph("Aucune transaction sur cette saison.", normal_style))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
 def generate_receipt(transaction, currency='€'):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(

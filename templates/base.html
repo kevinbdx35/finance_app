@@ -725,6 +725,7 @@
   <div class="upd-body">
     <div class="upd-title">Mise à jour disponible</div>
     <div class="upd-sub" id="update-sub">Une nouvelle version est disponible.</div>
+    <div id="update-error" style="color:#F87171;font-size:11px;margin-bottom:6px;display:none;white-space:pre-wrap;max-height:80px;overflow:auto;"></div>
     <div class="upd-actions">
       <button id="update-btn" onclick="doUpdate()">Mettre à jour</button>
       <button id="dismiss-update-btn" onclick="dismissUpdate()">Plus tard</button>
@@ -784,12 +785,16 @@ async function doUpdate() {
     } else {
       btn.disabled = false;
       btn.textContent = 'Mettre à jour';
-      alert('Erreur lors de la mise à jour :\n' + (data.error || 'inconnue'));
+      const errEl = document.getElementById('update-error');
+      errEl.textContent = 'Erreur : ' + (data.error || 'inconnue');
+      errEl.style.display = 'block';
     }
   } catch (e) {
     btn.disabled = false;
     btn.textContent = 'Mettre à jour';
-    alert('Impossible de contacter le serveur.');
+    const errEl = document.getElementById('update-error');
+    errEl.textContent = 'Impossible de contacter le serveur Flask.';
+    errEl.style.display = 'block';
   }
 }
 

@@ -46,7 +46,15 @@
       {% if doc.notes %}<div style="margin-top:2px;">{{ doc.notes[:60] }}{% if doc.notes|length > 60 %}…{% endif %}</div>{% endif %}
     </div>
     <div style="display:flex;gap:8px;margin-top:4px;">
-      <a href="{{ url_for('download_document', doc_id=doc.id) }}" class="btn btn-outline btn-sm" style="flex:1;justify-content:center;">
+      {% set viewable_ext = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'] %}
+      {% set ext = '.' + doc.file_path.rsplit('.', 1)[-1].lower() if '.' in doc.file_path else '' %}
+      {% if ext in viewable_ext %}
+      <a href="{{ url_for('view_document', doc_id=doc.id) }}" target="_blank" class="btn btn-outline btn-sm" style="flex:1;justify-content:center;" title="Afficher dans le navigateur">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Afficher
+      </a>
+      {% endif %}
+      <a href="{{ url_for('download_document', doc_id=doc.id) }}" class="btn btn-outline btn-sm" style="{% if ext not in viewable_ext %}flex:1;{% endif %}justify-content:center;">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Télécharger
       </a>
