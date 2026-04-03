@@ -1,4 +1,4 @@
-# SLAMM Finances
+# SLAMM Finances · v1.1.2
 
 Application de comptabilité locale pour le club de MMA SLAMM — Saint-Lunaire (35).
 
@@ -113,7 +113,7 @@ Pour tester l'application avec des données fictives réalistes (transactions, b
 | Transactions | Ajout, modification, filtres avancés, pièces jointes, export CSV/Excel |
 | Documents | Stockage de contrats, licences, conventions (PDF, images) |
 | Budget | Suivi prévu vs réalisé par catégorie |
-| Rapports PDF | Rapport mensuel, annuel, reçus individuels |
+| Rapports PDF | Rapport mensuel, annuel, saison sportive (sep→août), reçus individuels |
 | Catégories | Personnalisables avec couleur |
 | Paramètres | Sauvegarde et restauration de la base de données |
 
