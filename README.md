@@ -1,4 +1,4 @@
-# SLAMM Finances · v1.1.2
+# SLAMM Finances · v1.1.3
 
 Application de comptabilité locale pour le club de MMA SLAMM — Saint-Lunaire (35).
 
